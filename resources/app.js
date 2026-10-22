@@ -387,12 +387,21 @@ async function regionFor(lat, lon, hint) {
 // UI primitives: toast & modal
 // ======================================================================
 function toast(title, msg, kind = 'err') {
-  const t = document.createElement('div');
-  t.className = 'toast ' + (kind === 'ok' ? 'ok' : kind === 'info' ? 'info' : '');
-  t.innerHTML = `<span class="t-ic">${icon(kind === 'ok' ? 'check' : kind === 'info' ? 'info' : 'alert', 15)}</span><div><b>${esc(title)}</b>${msg ? esc(msg) : ''}</div>`;
-  $('toasts').appendChild(t);
-  requestAnimationFrame(() => t.classList.add('show'));
-  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 250); }, 4000);
+  const key = title + '|' + (msg || '');
+  let t = [...$('toasts').children].find(x => x.dataset.key === key && !x.classList.contains('gone'));
+  if (t) {
+    // same message already on screen: just restart it instead of stacking a copy
+    clearTimeout(t._timer);
+    t.classList.remove('bump'); void t.offsetWidth; t.classList.add('bump');
+  } else {
+    t = document.createElement('div');
+    t.className = 'toast ' + (kind === 'ok' ? 'ok' : kind === 'info' ? 'info' : '');
+    t.dataset.key = key;
+    t.innerHTML = `<span class="t-ic">${icon(kind === 'ok' ? 'check' : kind === 'info' ? 'info' : 'alert', 15)}</span><div><b>${esc(title)}</b>${msg ? esc(msg) : ''}</div>`;
+    $('toasts').appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+  }
+  t._timer = setTimeout(() => { t.classList.add('gone'); t.classList.remove('show'); setTimeout(() => t.remove(), 250); }, 4000);
 }
 function modal({ icon: ic = 'info', tone = '', title, text = '', buttons }) {
   return new Promise(resolve => {

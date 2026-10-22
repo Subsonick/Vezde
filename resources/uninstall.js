@@ -165,7 +165,7 @@ const Uninstaller = {
         <p class="dlg-text">Отменить удаление нельзя. Если точки ещё пригодятся, сначала сохраните их в файл.</p>
         <label class="switch"><input type="checkbox" id="unConfirm"><span class="sw"></span>Я понимаю, что данные удалятся навсегда</label>`,
       buttons: [
-        { label: 'Удалить всё', value: 'go', style: 'danger', validate: el => { const c = el.querySelector('#unConfirm'); if (c.checked) return true; const l = c.closest('.switch'); l.classList.remove('need'); void l.offsetWidth; l.classList.add('need'); return false; } },
+        { label: 'Удалить всё', value: 'go', style: 'danger', validate: el => { const c = el.querySelector('#unConfirm'); if (c.checked) return true; const l = c.closest('.switch'); l.classList.remove('need'); void l.offsetWidth; l.classList.add('need'); toast('Подтвердите удаление', 'Включите переключатель «Я понимаю, что данные удалятся навсегда».', 'info'); return false; } },
         ...(n ? [{ label: 'Сначала сохранить копию', value: 'backup' }] : []),
         { label: 'Отмена', value: null, style: 'ghost' },
       ],
