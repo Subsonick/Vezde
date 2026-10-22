@@ -1,0 +1,59 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "ru.travelmap.diary",
+  "applicationName": "Vezde",
+  "version": "2.1.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/resources/",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "tokenSecurity": "one-time",
+  "logging": {
+    "enabled": false,
+    "writeToLogFile": false
+  },
+  "nativeAllowList": [
+    "app.*",
+    "os.*",
+    "filesystem.*",
+    "window.*",
+    "events.*"
+  ],
+  "modes": {
+    "window": {
+      "title": "Vezde",
+      "width": 1400,
+      "height": 900,
+      "minWidth": 960,
+      "minHeight": 620,
+      "center": true,
+      "icon": "/resources/icon.png",
+      "enableInspector": false,
+      "exitProcessOnClose": false,
+      "useSavedState": true,
+      "resizable": true
+    },
+    "cloud": {
+      "url": "/",
+      "nativeAllowList": [
+        "app.*",
+        "os.*",
+        "filesystem.*",
+        "events.*"
+      ]
+    }
+  },
+  "cli": {
+    "binaryName": "vezde",
+    "resourcesPath": "/resources/",
+    "extensionsPath": "/extensions/",
+    "clientLibrary": "/resources/vendor/neutralino.js",
+    "binaryVersion": "6.10.0",
+    "clientVersion": "6.10.0"
+  },
+  "description": "Vezde — дневник поездок",
+  "copyright": "Subsonick, MIT License",
+  "author": "Subsonick"
+}

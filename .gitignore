@@ -1,0 +1,11 @@
+# Neutralino binaries (download with `npm run setup`) and build output
+bin/
+dist/
+node_modules/
+
+# Personal data must never be committed
+data/
+portable.txt
+.tmp/
+.storage/
+*.log

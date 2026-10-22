@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vezde</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="icon.png">
+<script>try{var t=localStorage.getItem('vezde.theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
+</head>
+<body>
+<div class="app">
+  <div id="map"></div>
+
+  <aside class="sidebar">
+    <header class="brand">
+      <div class="logo" id="logo"><span class="logo-name">Vezde</span></div>
+      <div class="brand-actions menu-wrap">
+        <button class="icon-btn" id="themeBtn" type="button" title="Светлая тема"></button>
+        <button class="icon-btn" id="tourBtn" type="button" title="Обучение: как пользоваться программой"></button>
+        <button class="icon-btn" id="menuBtn" type="button" title="Файлы и данные" aria-haspopup="true"></button>
+        <div class="menu" id="menu" hidden>
+          <button type="button" data-act="export"></button>
+          <button type="button" data-act="import"></button>
+          <button type="button" data-act="folder" class="native-only"></button>
+          <button type="button" data-act="updates" class="native-only"></button>
+          <div class="menu-sep"></div>
+          <button type="button" data-act="uninstall" class="danger"></button>
+          <div class="menu-ver" id="menuVer"></div>
+        </div>
+      </div>
+    </header>
+    <div class="brand-meta">
+      <div class="counters" id="counters"></div>
+      <span class="save-state" id="saveState" title="Все изменения сохраняются автоматически">сохранено</span>
+    </div>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab" data-tab="add" role="tab" type="button"></button>
+      <button class="tab" data-tab="list" role="tab" type="button"></button>
+      <button class="tab" data-tab="stats" role="tab" type="button"></button>
+    </nav>
+
+    <div class="filterbar">
+      <div class="trip-picker">
+        <button type="button" class="select-like" id="tripPickerBtn">Все поездки</button>
+        <div class="popover" id="tripPicker" hidden>
+          <div class="popover-actions">
+            <button type="button" id="tripAll">Выбрать все</button>
+            <button type="button" id="tripNone">Снять все</button>
+          </div>
+          <div id="tripChecks"></div>
+        </div>
+      </div>
+      <select id="yearFilter" class="select-like" aria-label="Год"></select>
+    </div>
+
+    <!-- ADD / EDIT -->
+    <section class="panel" id="panel-add">
+      <div class="edit-banner" id="editBanner" hidden>
+        <span class="eb-ic"></span><span>Вы редактируете <b id="editName"></b></span>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="search">Найти место</label>
+        <div class="search-wrap">
+          <span class="input-ic" id="searchIc"></span>
+          <input id="search" placeholder="Название или адрес" autocomplete="off" spellcheck="false">
+          <div class="suggest" id="suggest" hidden></div>
+        </div>
+        <p class="hint">Не нашлось точное место? Вставьте координаты ниже или укажите его на карте.</p>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="fName">Название <i>*</i></label>
+        <input id="fName" placeholder="Например, усадьба Храповицкого">
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="fCoords">Координаты <i>*</i></label>
+        <div class="row">
+          <input id="fCoords" placeholder="Вставьте из Яндекс или Google Карт" spellcheck="false">
+          <button type="button" class="btn-ghost" id="pickBtn"></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="fAddress">Адрес</label>
+        <input id="fAddress" placeholder="Город, улица, дом">
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="fDate">Дата <i>*</i></label>
+          <input id="fDate" type="date">
+        </div>
+        <div class="field">
+          <label class="lbl" for="fRegion">Регион</label>
+          <select id="fRegion"></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="fTrip">Поездка</label>
+        <div class="row">
+          <select id="fTrip"></select>
+          <button type="button" class="btn-ghost" id="newTripBtn"></button>
+        </div>
+        <div class="row new-trip" id="newTripRow" hidden>
+          <input id="newTripName" placeholder="Например, Алтай 2025">
+          <button type="button" class="btn-solid" id="newTripCreate">Создать</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="fNote">Заметка</label>
+        <textarea id="fNote" rows="3" placeholder="Впечатления, детали"></textarea>
+      </div>
+
+      <div class="field">
+        <label class="lbl">Фото</label>
+        <div id="fPhotos"></div>
+        <p class="hint">Можно перетащить файлы сюда, подойдут и HEIC с iPhone. Если в фото есть геометка и дата, они подставятся сами.</p>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-solid wide" id="saveBtn">Сохранить точку</button>
+        <button type="button" class="btn-ghost wide" id="cancelEditBtn" hidden>Отменить редактирование</button>
+      </div>
+    </section>
+
+    <!-- LIST -->
+    <section class="panel" id="panel-list" hidden>
+      <div class="search-wrap list-search-wrap">
+        <span class="input-ic" id="listSearchIc"></span>
+        <input id="listSearch" class="list-search" placeholder="Найти по названию, адресу, заметке" spellcheck="false">
+      </div>
+      <div id="pointsList"></div>
+    </section>
+
+    <!-- STATS -->
+    <section class="panel" id="panel-stats" hidden>
+      <div id="stats"></div>
+    </section>
+  </aside>
+
+  <div class="map-controls" id="mapControls">
+    <button type="button" class="map-btn" id="layersBtn" title="Вид карты и слои"></button>
+    <div class="map-panel" id="layersPanel" hidden>
+      <div class="mp-title">Вид карты</div>
+      <div class="base-list" id="baseList" role="radiogroup"></div>
+      <div class="mp-sep"></div>
+      <label class="switch"><input type="checkbox" id="showRegions"><span class="sw"></span>Закрасить посещённые регионы</label>
+      <label class="switch"><input type="checkbox" id="showRoutes"><span class="sw"></span>Показать дороги маршрутов</label>
+      <div class="mp-status" id="routeStatus" hidden></div>
+    </div>
+  </div>
+
+  <div class="pick-banner" id="pickBanner" hidden>
+    <span id="pickIc"></span>Щёлкните на карте нужное место
+    <button type="button" id="pickCancel">Отмена</button>
+  </div>
+
+  <div class="legend" id="legend" hidden></div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<input type="file" id="importInput" accept=".json,application/json" hidden>
+
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/regions.js"></script>
+<script src="vendor/neutralino.js"></script>
+<script src="vendor/exifr.js"></script>
+<script src="icons.js"></script>
+<script src="photos.js"></script>
+<script src="share.js"></script>
+<script src="tour.js"></script>
+<script src="uninstall.js"></script>
+<script src="updates.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
