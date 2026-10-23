@@ -2,7 +2,7 @@
 /* Full removal of Vezde from a Windows computer.
    One PowerShell script is the single source of truth. It is used two ways:
    1) the menu item "Удалить Vezde с компьютера" writes it to %TEMP% and runs it after the app exits;
-   2) the app keeps a double-clickable "Удалить Vezde.cmd" next to Vezde.exe (works even if the app no longer starts).
+   2) the double-clickable "Удалить Vezde.cmd" from the zip (works even if the app no longer starts).
    Safety rule: only files and folders with known names are deleted; the program folder itself is removed only when it is empty. */
 
 const UNINSTALL_CMD_NAME = 'Удалить Vezde.cmd';
@@ -63,7 +63,7 @@ $failed = @()
 
 # 1. browser engine profiles (cache, saved theme) in %APPDATA% and %LOCALAPPDATA%, named after the exe
 foreach ($root in @($env:APPDATA, $env:LOCALAPPDATA)) {
-  foreach ($n in ($exeNames + @('Vezde'))) {
+  foreach ($n in ($exeNames + @('Vezde', 'ru.travelmap.diary'))) {
     $p = Join-Path $root $n
     if ((Test-Path -LiteralPath $p) -and -not (Remove-Safe $p -Recurse)) { $failed += $p }
   }
@@ -72,7 +72,8 @@ foreach ($root in @($env:APPDATA, $env:LOCALAPPDATA)) {
 # 2. program files with known names
 if ($ourData -and -not (Remove-Safe $dataDir -Recurse)) { $failed += $dataDir }
 $tmp = Join-Path $Dir '.tmp'
-Remove-Safe (Join-Path $tmp 'window_state.config.json') | Out-Null
+foreach ($f in @('window_state.config.json', 'auth_info.json')) { Remove-Safe (Join-Path $tmp $f) | Out-Null }
+Remove-Safe (Join-Path $tmp 'chromedata') -Recurse | Out-Null
 if ((Test-Path -LiteralPath $tmp) -and -not (Get-ChildItem -LiteralPath $tmp -Force)) { Remove-Item -LiteralPath $tmp -Force }
 $storage = Join-Path $Dir '.storage'
 if ((Test-Path -LiteralPath $storage) -and -not (Get-ChildItem -LiteralPath $storage -Force | Where-Object { $_.Extension -ne '.neustorage' })) { Remove-Safe $storage -Recurse | Out-Null }
@@ -137,13 +138,33 @@ function uninstallCmdText() {
 const Uninstaller = {
   appDir() { return (window.NL_PATH || '').replace(/\//g, '\\').replace(/\\$/, ''); },
 
-  /** Keeps "Удалить Vezde.cmd" next to the program so removal works even if the app breaks. */
+  /** Tidies the program folder on start.
+      "Удалить Vezde.cmd" is no longer created next to the exe (it comes in the zip): an existing copy is kept
+      up to date, except on the Desktop or in Downloads, where it is just clutter and is removed.
+      Since 1.1.1 Neutralino keeps its service files (.tmp, .storage) in AppData, so old ones next to the exe go too. */
   async ensureFile() {
     if (!IS_NATIVE || !/^win/i.test(window.NL_OS || '')) return;
-    const path = `${this.appDir()}\\${UNINSTALL_CMD_NAME}`;
-    const text = uninstallCmdText();
-    try { if (await Neutralino.filesystem.readFile(path) === text) return; } catch {}
-    try { await Neutralino.filesystem.writeFile(path, text); } catch (e) { console.warn('uninstaller file', e); }
+    const fs = Neutralino.filesystem, dir = this.appDir();
+    const norm = p => String(p || '').replace(/\//g, '\\').replace(/\\$/, '').toLowerCase();
+    const path = `${dir}\\${UNINSTALL_CMD_NAME}`;
+    let current = null;
+    try { current = await fs.readFile(path); } catch {}
+    if (current !== null && current.includes('#VEZDE-PS')) {
+      let clutter = false;
+      for (const k of ['desktop', 'downloads']) { try { if (norm(await Neutralino.os.getPath(k)) === norm(dir)) clutter = true; } catch {} }
+      try {
+        if (clutter) await fs.remove(path);
+        else { const text = uninstallCmdText(); if (current !== text) await fs.writeFile(path, text); }
+      } catch (e) { console.warn('uninstaller file', e); }
+    }
+    if (window.NL_DATAPATH && norm(window.NL_DATAPATH) !== norm(dir)) {
+      const tmp = `${dir}\\.tmp`;
+      try {
+        const items = (await fs.readDirectory(tmp)).map(e => e.entry).filter(n => n !== '.' && n !== '..');
+        if (items.every(n => ['window_state.config.json', 'auth_info.json', 'chromedata'].includes(n))) await fs.remove(tmp);
+      } catch {}
+      try { if (!(await fs.readDirectory(`${dir}\\.storage`)).filter(e => e.entry !== '.' && e.entry !== '..').length) await fs.remove(`${dir}\\.storage`); } catch {}
+    }
   },
 
   async start() {

@@ -219,7 +219,7 @@ const Store = {
 // ======================================================================
 /** Format of travel-data.json. Raise it whenever the stored shape changes; older formats are upgraded on load. */
 const DATA_FORMAT = 3;
-const APP_VERSION = window.NL_APPVERSION || '1.1.0';
+const APP_VERSION = window.NL_APPVERSION || '1.1.1';
 let readOnly = false;          // data came from a newer Vezde: show it, never write it
 let data = { version: DATA_FORMAT, points: [], trips: [], settings: { ...DEFAULT_SETTINGS } };
 let routeCache = {};           // key -> {path:[[lat,lon]...], km}
