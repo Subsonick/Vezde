@@ -78,7 +78,8 @@ $storage = Join-Path $Dir '.storage'
 if ((Test-Path -LiteralPath $storage) -and -not (Get-ChildItem -LiteralPath $storage -Force | Where-Object { $_.Extension -ne '.neustorage' })) { Remove-Safe $storage -Recurse | Out-Null }
 $src = Join-Path $Dir 'source'
 if ((Get-Content -LiteralPath (Join-Path $src 'neutralino.config.json') -Raw) -match 'ru\.travelmap\.diary') { Remove-Safe $src -Recurse | Out-Null }
-foreach ($f in ($exeNames + @('neutralinojs.log', 'resources.neu', 'portable.txt', 'Как пользоваться.txt'))) {
+Remove-Safe (Join-Path $env:TEMP 'vezde-update') -Recurse | Out-Null
+foreach ($f in ($exeNames + @('Vezde.exe.old', 'neutralinojs.log', 'resources.neu', 'portable.txt', 'Как пользоваться.txt'))) {
   $p = Join-Path $Dir $f
   if ((Test-Path -LiteralPath $p) -and -not (Remove-Safe $p)) { $failed += $p }
 }

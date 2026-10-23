@@ -219,7 +219,7 @@ const Store = {
 // ======================================================================
 /** Format of travel-data.json. Raise it whenever the stored shape changes; older formats are upgraded on load. */
 const DATA_FORMAT = 3;
-const APP_VERSION = window.NL_APPVERSION || '1.0.1';
+const APP_VERSION = window.NL_APPVERSION || '1.1.0';
 let readOnly = false;          // data came from a newer Vezde: show it, never write it
 let data = { version: DATA_FORMAT, points: [], trips: [], settings: { ...DEFAULT_SETTINGS } };
 let routeCache = {};           // key -> {path:[[lat,lon]...], km}
@@ -1298,7 +1298,14 @@ async function main() {
   try { await PhotoStore.init(); } catch (e) { console.error('photos', e); }
   if (IS_NATIVE) {
     Neutralino.events.on('windowClose', async () => { if (!window.__vezdeUninstalling) await flushSave(); Neutralino.app.exit(); });
-    if (loaded && loadedFormat < DATA_FORMAT) { await Store.dailyBackup(normalizeData(loaded), `before-update-${APP_VERSION}`); persist(); }
+    const prevVer = S().lastVersion;
+    // a new version (or a new data format) starts with a safety copy of the old data
+    if (loaded && (loadedFormat < DATA_FORMAT || prevVer !== APP_VERSION)) await Store.dailyBackup(normalizeData(loaded), `before-update-${APP_VERSION}`);
+    if (!readOnly && (prevVer !== APP_VERSION || loadedFormat < DATA_FORMAT)) {
+      S().lastVersion = APP_VERSION; persist();
+      if (prevVer && cmpVersion(APP_VERSION, prevVer) > 0) setTimeout(() => toast(`Vezde обновлена до ${APP_VERSION}`, 'Все точки, поездки и фото на месте.', 'ok'), 1400);
+    }
+    Updates.cleanup();
     Store.dailyBackup(data);
     Uninstaller.ensureFile();
   }

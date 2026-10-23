@@ -490,3 +490,7 @@ img.missing{opacity:.3;}
 @keyframes needShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 .toast.bump{animation:toastBump .3s var(--ease);}
 @keyframes toastBump{50%{transform:scale(1.04)}}
+.upd-modal .upd-bar{position:relative;height:6px;border-radius:6px;background:var(--raised-2);overflow:hidden;margin:14px 0 14px;}
+.upd-modal .upd-bar i{position:absolute;top:0;bottom:0;width:40%;border-radius:6px;background:var(--accent);animation:updSlide 1.3s ease-in-out infinite;}
+.upd-modal .mx{margin-bottom:0;}
+@keyframes updSlide{0%{left:-40%}100%{left:100%}}
