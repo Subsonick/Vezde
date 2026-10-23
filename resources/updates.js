@@ -19,14 +19,60 @@ function cmpVersion(a, b) {
 const Updates = {
   latest: null,
 
+  /** Latest release tag. Tries the browser first, then Windows' own curl / PowerShell,
+      which go through the system proxy and certificates when the built-in browser can't. */
+  async fetchLatest() {
+    const api = `https://api.github.com/repos/${UPDATE_REPO}/releases/latest`;
+    const tries = [
+      async () => {
+        const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 9000);
+        try {
+          const r = await fetch(api, { cache: 'no-store', signal: ctl.signal });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return await r.json();
+        } finally { clearTimeout(t); }
+      },
+    ];
+    if (IS_NATIVE && /^win/i.test(window.NL_OS || '')) {
+      const run = async cmd => {
+        const r = await Neutralino.os.execCommand(cmd);
+        if (r.exitCode !== 0) throw new Error('exit ' + r.exitCode);
+        return r.stdOut || '';
+      };
+      tries.push(
+        async () => JSON.parse(await run(`curl.exe -s -f -m 12 -A Vezde "${api}"`)),
+        // no API at all: the releases/latest page redirects to …/tag/vX.Y.Z
+        async () => {
+          const out = await run(`curl.exe -s -I -m 12 -A Vezde "${RELEASES_URL}"`);
+          const m = out.match(/\/releases\/tag\/([^\s/]+)/i);
+          if (!m) throw new Error('no tag');
+          return { tag_name: decodeURIComponent(m[1]), html_url: RELEASES_URL };
+        },
+        async () => {
+          const ps = `[Net.ServicePointManager]::SecurityProtocol='Tls12'; (Invoke-RestMethod -UseBasicParsing -TimeoutSec 12 -Uri '${api}') | ConvertTo-Json -Compress`;
+          return JSON.parse(await run(`powershell -NoProfile -NonInteractive -Command "${ps}"`));
+        },
+      );
+    }
+    let last;
+    for (const t of tries) {
+      try { const rel = await t(); if (rel && rel.tag_name) return rel; } catch (e) { last = e; }
+    }
+    throw last || new Error('no answer');
+  },
+
   async check(manual) {
     let rel;
     try {
-      const r = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      rel = await r.json();
+      rel = await this.fetchLatest();
     } catch (e) {
-      if (manual) toast('Не удалось проверить обновления', 'Нет связи с GitHub. Попробуйте позже.');
+      console.warn('update check', e);
+      if (manual) {
+        const v = await modal({ icon: 'alert', title: 'Не удалось проверить обновления',
+          text: 'Vezde не смогла связаться с GitHub. Проверьте интернет или откройте страницу загрузки в браузере: там всегда лежит последняя версия.',
+          buttons: [{ label: 'Открыть страницу загрузки', value: 1, style: 'primary' }, { label: 'Закрыть', value: null, style: 'ghost' }] });
+        if (v) this.openReleasePage();
+      }
       return;
     }
     const ver = String(rel.tag_name || '').replace(/^v/i, '');

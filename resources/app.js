@@ -57,8 +57,8 @@ const NO_TRIP = '';
 const NO_TRIP_COLOR = '#8d99a8';
 const DEFAULT_SETTINGS = {
   tab: 'add', selectedTrips: null, year: 'all',
-  baseLayer: 'osm', showRegions: true, showRoutes: false,
-  view: null, theme: 'dark', mapDefault21: true,
+  baseLayer: 'auto', showRegions: true, showRoutes: false,
+  view: null, theme: 'light',
 };
 
 // ======================================================================
@@ -219,7 +219,7 @@ const Store = {
 // ======================================================================
 /** Format of travel-data.json. Raise it whenever the stored shape changes; older formats are upgraded on load. */
 const DATA_FORMAT = 3;
-const APP_VERSION = window.NL_APPVERSION || '1.0.0';
+const APP_VERSION = window.NL_APPVERSION || '1.0.1';
 let readOnly = false;          // data came from a newer Vezde: show it, never write it
 let data = { version: DATA_FORMAT, points: [], trips: [], settings: { ...DEFAULT_SETTINGS } };
 let routeCache = {};           // key -> {path:[[lat,lon]...], km}
@@ -254,8 +254,6 @@ function normalizeData(raw) {
     Object.assign(out.settings, raw.settings);
     // first start after the redesign: switch to the map that matches the theme
     if (!raw.settings.theme) out.settings.theme = 'dark';
-    // v2.1: the default map is «Схема»; switch over people who only had the earlier default
-    if (!raw.settings.mapDefault21) { if (out.settings.baseLayer === 'auto') out.settings.baseLayer = 'osm'; out.settings.mapDefault21 = true; }
   }
   return out;
 }
