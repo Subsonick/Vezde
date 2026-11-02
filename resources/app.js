@@ -1,6 +1,6 @@
 'use strict';
 /* Vezde — desktop travel diary (Neutralino + Leaflet).
-   Data is saved automatically to <app folder>/data/travel-data.json (or localStorage when opened in a plain browser). */
+   Data is saved automatically to %APPDATA%\Vezde\travel-data.json (next to the exe in portable mode, localStorage in a plain browser). */
 
 // ======================================================================
 // Utilities
@@ -147,7 +147,7 @@ const Store = {
     catch {
       const broken = this.file.replace(/\.json$/, `.broken-${Date.now()}.json`);
       try { await Neutralino.filesystem.move(this.file, broken); } catch {}
-      setTimeout(() => toast('Файл данных повреждён', 'Он сохранён рядом как travel-data.broken-….json. Можно загрузить последнюю копию из data\\backups.'), 800);
+      setTimeout(() => toast('Файл данных повреждён', 'Его не удалось прочитать, поэтому он отложен как travel-data.broken-….json и ничего не потеряно. Чтобы вернуть точки: меню → «Открыть папку с данными» → папка backups → «Загрузить из файла».'), 800);
       return null;
     }
   },
@@ -219,7 +219,7 @@ const Store = {
 // ======================================================================
 /** Format of travel-data.json. Raise it whenever the stored shape changes; older formats are upgraded on load. */
 const DATA_FORMAT = 3;
-const APP_VERSION = window.NL_APPVERSION || '1.1.1';
+const APP_VERSION = window.NL_APPVERSION || '1.1.2';
 let readOnly = false;          // data came from a newer Vezde: show it, never write it
 let data = { version: DATA_FORMAT, points: [], trips: [], settings: { ...DEFAULT_SETTINGS } };
 let routeCache = {};           // key -> {path:[[lat,lon]...], km}
@@ -792,15 +792,33 @@ function endEdit() {
   clearPlaceFields();
   tidyPhotos();
 }
+// Inline field error: red frame + short text right under the field, read by screen readers.
+function fieldError(id, msg) {
+  const el = $(id); if (!el) return;
+  el.classList.toggle('invalid', !!msg);
+  if (!msg) return;
+  const field = el.closest('.field'); if (!field) return;
+  let p = field.querySelector('.field-err');
+  if (!p) { p = document.createElement('p'); p.className = 'field-err'; p.id = id + '-err'; field.appendChild(p); }
+  p.innerHTML = icon('alert', 13) + '<span>' + esc(msg) + '</span>';
+  const d = (el.getAttribute('aria-describedby') || '').split(' ').filter(x => x && x !== p.id);
+  el.setAttribute('aria-describedby', [...d, p.id].join(' '));
+}
+// keep aria-invalid in step with the .invalid class, whichever code path toggles it
+new MutationObserver(ms => ms.forEach(m => {
+  const t = m.target; if (!/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+  if (t.classList.contains('invalid')) t.setAttribute('aria-invalid', 'true'); else t.removeAttribute('aria-invalid');
+})).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
+
 async function savePoint() {
   const name = $('fName').value.trim();
   const c = parseCoords($('fCoords').value);
   const date = $('fDate').value;
   const missing = [];
-  $('fName').classList.toggle('invalid', !name); if (!name) missing.push('название');
-  $('fCoords').classList.toggle('invalid', !c); if (!c) missing.push($('fCoords').value.trim() ? 'координаты в понятном виде (например 55.93, 40.89)' : 'координаты');
-  $('fDate').classList.toggle('invalid', !date); if (!date) missing.push('дату');
-  if (date && date > todayISO()) { $('fDate').classList.add('invalid'); toast('Дата в будущем', 'Укажите дату, когда вы уже были в этом месте.'); return; }
+  fieldError('fName', !name && 'Впишите название места.'); if (!name) missing.push('название');
+  fieldError('fCoords', !c && ($('fCoords').value.trim() ? 'Не удалось прочитать координаты. Пример: 55.93, 40.89' : 'Вставьте координаты или укажите место на карте.')); if (!c) missing.push('координаты');
+  fieldError('fDate', !date && 'Укажите, когда вы здесь были.'); if (!date) missing.push('дату');
+  if (date && date > todayISO()) { fieldError('fDate', 'Эта дата ещё не наступила. Укажите день, когда вы уже были здесь.'); const f = $('fDate'); f.scrollIntoView({ block: 'center', behavior: 'smooth' }); f.focus({ preventScroll: true }); toast('Дата в будущем', 'Укажите дату, когда вы уже были в этом месте.'); return; }
   if (missing.length) { const f = document.querySelector('#panel-add .invalid'); f?.scrollIntoView({ block: 'center', behavior: 'smooth' }); f?.focus({ preventScroll: true }); toast('Не всё заполнено', 'Укажите ' + missing.join(', ') + '.'); return; }
   if (formPhotos.busy) { toast('Фото ещё обрабатываются', 'Подождите пару секунд и сохраните снова.', 'info'); return; }
 
@@ -880,10 +898,11 @@ function renderList() {
     const span = dates.length ? (dates[0] === dates[dates.length - 1] ? fmtDate(dates[0]) : `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}`) : '';
     const c = tripColor(k), trip = k ? tripById(k) : null;
     return `<div class="trip-group" style="--tc:${c}">
-      <div class="trip-head" data-trip="${esc(k)}" title="Показать поездку на карте">
+      <div class="trip-head" data-trip="${esc(k)}" tabindex="0" role="button" aria-label="Показать на карте: ${esc(tripName(k))}" title="Показать поездку на карте">
         <span class="trip-swatch" style="background:${c}"></span>
-        <div class="tt"><div class="title">${esc(tripName(k))}</div>
+        <div class="tt"><div class="title" title="${esc(tripName(k))}">${esc(tripName(k))}</div>
           <div class="meta">${list.length} ${plural(list.length, 'точка', 'точки', 'точек')}${span ? ', ' + span : ''}</div></div>
+        <span class="map-hint" aria-hidden="true">${icon('target', 15)}</span>
         ${k ? `<div class="trip-acts">
           <button class="mini-btn" data-share="${esc(k)}" title="Поделиться поездкой">${icon('share', 16)}</button>
           <button class="mini-btn" data-edittrip="${esc(k)}" title="Название, комментарий и фото поездки">${icon('edit', 16)}</button>
@@ -891,11 +910,12 @@ function renderList() {
       </div>
       ${trip?.comment ? `<div class="trip-comment">${esc(trip.comment)}</div>` : ''}
       ${trip?.photos?.length ? `<div class="trip-photos">${trip.photos.map((id, i) => `<img data-photo="${esc(id)}" data-tlb="${esc(k)}" data-i="${i}" alt="">`).join('')}</div>` : ''}
-      <div class="timeline">${list.map(p => `<div class="pt" data-id="${esc(p.id)}" title="Показать на карте">
+      <div class="timeline">${list.map(p => `<div class="pt" data-id="${esc(p.id)}" tabindex="0" role="button" aria-label="Показать на карте: ${esc(p.name)}" title="Показать на карте">
         <span class="rail"></span>
         <div class="body"><div class="nm"><span>${esc(p.name)}</span>${p.photos?.length ? `<span class="ph-count" title="Фото">${icon('camera', 13)}${p.photos.length}</span>` : ''}</div>
           <div class="mt">${[fmtDate(p.date), p.region || p.address].filter(Boolean).map(esc).join(', ')}</div></div>
-        <div class="acts"><button class="mini-btn" data-edit="${esc(p.id)}" title="Изменить точку">${icon('edit', 15)}</button><button class="mini-btn danger" data-del="${esc(p.id)}" title="Удалить точку">${icon('trash', 15)}</button></div>
+        <span class="map-hint" aria-hidden="true">${icon('target', 15)}</span>
+        <div class="acts"><button class="mini-btn" data-edit="${esc(p.id)}" title="Изменить точку" aria-label="Изменить точку ${esc(p.name)}">${icon('edit', 15)}</button><button class="mini-btn danger" data-del="${esc(p.id)}" title="Удалить точку" aria-label="Удалить точку ${esc(p.name)}">${icon('trash', 15)}</button></div>
       </div>`).join('')}</div>
     </div>`;
   }).join('');
@@ -1125,7 +1145,7 @@ function renderStats() {
 // Wiring
 // ======================================================================
 function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
   ['add', 'list', 'stats'].forEach(t => $('panel-' + t).hidden = t !== tab);
   if (S().tab !== tab) setSetting('tab', tab);
 }
@@ -1186,6 +1206,15 @@ function bindEvents() {
     },
   });
   document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  document.querySelector('.tabs').addEventListener('keydown', e => {
+    const tabs = [...document.querySelectorAll('.tab')], i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    let j = null;
+    if (e.key === 'ArrowRight') j = (i + 1) % tabs.length; else if (e.key === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') j = 0; else if (e.key === 'End') j = tabs.length - 1;
+    if (j === null) return;
+    e.preventDefault(); switchTab(tabs[j].dataset.tab); tabs[j].focus();
+  });
 
   // menu
   $('tourBtn').addEventListener('click', () => Tour.start());
@@ -1230,7 +1259,7 @@ function bindEvents() {
   $('suggest').addEventListener('click', e => { const it = e.target.closest('.sg-item'); if (it) chooseSuggestion(+it.dataset.i); });
   $('fCoords').addEventListener('change', () => {
     const c = parseCoords($('fCoords').value);
-    $('fCoords').classList.toggle('invalid', !c && !!$('fCoords').value.trim());
+    fieldError('fCoords', !c && !!$('fCoords').value.trim() && 'Не удалось прочитать координаты. Пример: 55.93, 40.89');
     if (!c) return;
     $('fCoords').value = coordsText(c.lat, c.lon);
     showPickMarker(c.lat, c.lon);
@@ -1265,6 +1294,12 @@ function bindEvents() {
 
   // list
   $('listSearch').addEventListener('input', debounce(renderList, 150));
+  $('pointsList').addEventListener('keydown', e => {
+    const row = e.target.closest('.pt,.trip-head');
+    if (!row || e.target !== row) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
+    else if (e.key === 'Delete' && row.classList.contains('pt')) { e.preventDefault(); deletePoint(row.dataset.id); }
+  });
   $('pointsList').addEventListener('click', e => {
     const b = e.target.closest('button');
     if (b?.dataset.edit) return startEdit(b.dataset.edit);

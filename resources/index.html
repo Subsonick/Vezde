@@ -38,9 +38,9 @@
     </div>
 
     <nav class="tabs" role="tablist">
-      <button class="tab" data-tab="add" role="tab" type="button"></button>
-      <button class="tab" data-tab="list" role="tab" type="button"></button>
-      <button class="tab" data-tab="stats" role="tab" type="button"></button>
+      <button class="tab" data-tab="add" role="tab" type="button" id="tab-add" aria-controls="panel-add" aria-selected="false"></button>
+      <button class="tab" data-tab="list" role="tab" type="button" id="tab-list" aria-controls="panel-list" aria-selected="false"></button>
+      <button class="tab" data-tab="stats" role="tab" type="button" id="tab-stats" aria-controls="panel-stats" aria-selected="false"></button>
     </nav>
 
     <div class="filterbar">
@@ -58,7 +58,7 @@
     </div>
 
     <!-- ADD / EDIT -->
-    <section class="panel" id="panel-add">
+    <section class="panel" id="panel-add" role="tabpanel" aria-labelledby="tab-add">
       <div class="edit-banner" id="editBanner" hidden>
         <span class="eb-ic"></span><span>Вы редактируете <b id="editName"></b></span>
       </div>
@@ -132,7 +132,7 @@
     </section>
 
     <!-- LIST -->
-    <section class="panel" id="panel-list" hidden>
+    <section class="panel" id="panel-list" role="tabpanel" aria-labelledby="tab-list" hidden>
       <div class="search-wrap list-search-wrap">
         <span class="input-ic" id="listSearchIc"></span>
         <input id="listSearch" class="list-search" placeholder="Найти по названию, адресу, заметке" spellcheck="false">
@@ -141,7 +141,7 @@
     </section>
 
     <!-- STATS -->
-    <section class="panel" id="panel-stats" hidden>
+    <section class="panel" id="panel-stats" role="tabpanel" aria-labelledby="tab-stats" hidden>
       <div id="stats"></div>
     </section>
   </aside>
@@ -166,7 +166,7 @@
   <div class="legend" id="legend" hidden></div>
 </div>
 
-<div class="toasts" id="toasts"></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 <input type="file" id="importInput" accept=".json,application/json" hidden>
 
 <script src="vendor/leaflet.js"></script>
